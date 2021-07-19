@@ -35,10 +35,10 @@
             if (end - current < 8)                                             \
                 return false;                                                  \
                                                                                \
-            u2 access_flags = get_u2(&current);                                \
-            u2 name_index = get_u2(&current);                                  \
-            u2 descriptor_index = get_u2(&current);                            \
-            u2 attributes_count = get_u2(&current);                            \
+            u2 access_flags = read_u2(&current);                               \
+            u2 name_index = read_u2(&current);                                 \
+            u2 descriptor_index = read_u2(&current);                           \
+            u2 attributes_count = read_u2(&current);                           \
             struct attribute_info *attributes = NULL;                          \
                                                                                \
             if (attributes_count > 0) {                                        \
@@ -64,12 +64,21 @@
         return true;                                                           \
     }
 
-#define CLASSFILE_PARSE(type, member)                                          \
+#define CLASSFILE_DEFUN_READ_U(n)                                              \
+    u##n read_u##n(const u1 **current_ptr) {                                   \
+        const u1 *current = *current_ptr;                                      \
+        u##n value = get_u##n(current);                                        \
+        *current_ptr += n;                                                     \
+                                                                               \
+        return value;                                                          \
+    }
+
+#define CLASSFILE_SUBROUTINE_PARSE(type, member)                               \
     do {                                                                       \
         if (end - current < 2)                                                 \
             goto failure;                                                      \
                                                                                \
-        classfile->member##_count = get_u2(&current);                          \
+        classfile->member##_count = read_u2(&current);                         \
                                                                                \
         if (classfile->member##_count > 0) {                                   \
             classfile->member =                                                \
@@ -84,31 +93,6 @@
         }                                                                      \
     } while (0)
 
-static u1 get_u1(const u1 **current_ptr) {
-    const u1 *current = *current_ptr;
-    u1 value = current[0];
-    *current_ptr += 1;
-
-    return value;
-}
-
-static u2 get_u2(const u1 **current_ptr) {
-    const u1 *current = *current_ptr;
-    u2 value = (current[0] << 8) | current[1];
-    *current_ptr += 2;
-
-    return value;
-}
-
-static u4 get_u4(const u1 **current_ptr) {
-    const u1 *current = *current_ptr;
-    u4 value = (current[0] << 24) | (current[1] << 16) | (current[2] << 8) |
-               current[3];
-    *current_ptr += 4;
-
-    return value;
-}
-
 static bool parse_attributes(u2 attributes_count,
                              struct attribute_info *attributes,
                              const u1 **current_ptr, const u1 *end) {
@@ -118,8 +102,8 @@ static bool parse_attributes(u2 attributes_count,
         if (end - current < 6)
             return false;
 
-        u2 attribute_name_index = get_u2(&current);
-        u4 attribute_length = get_u4(&current);
+        u2 attribute_name_index = read_u2(&current);
+        u4 attribute_length = read_u4(&current);
 
         attributes[i] = (struct attribute_info){attribute_name_index,
                                                 attribute_length, current};
@@ -146,7 +130,7 @@ static bool parse_interfaces(u2 interfaces_count, u2 *interfaces,
         if (end - current < 2)
             return false;
 
-        interfaces[i] = get_u2(&current);
+        interfaces[i] = read_u2(&current);
     }
 
     *current_ptr = current;
@@ -164,7 +148,7 @@ static bool parse_constant_pool(u2 constant_pool_count,
         if (end - current < 1)
             return false;
 
-        u1 tag = get_u1(&current);
+        u1 tag = read_u1(&current);
         u2 utf8_length;
 
         constant_pool[i] = (struct cp_info){tag, current};
@@ -174,7 +158,7 @@ static bool parse_constant_pool(u2 constant_pool_count,
             if (end - current < 2)
                 return false;
 
-            utf8_length = get_u2(&current);
+            utf8_length = read_u2(&current);
 
             if (end - current < utf8_length)
                 return false;
@@ -182,10 +166,12 @@ static bool parse_constant_pool(u2 constant_pool_count,
             current += utf8_length;
             break;
 
-        case CONSTANT_Integer:
-        case CONSTANT_Float:
         case CONSTANT_Long:
         case CONSTANT_Double:
+            i++;
+
+        case CONSTANT_Integer:
+        case CONSTANT_Float:
         case CONSTANT_Class:
         case CONSTANT_String:
         case CONSTANT_Fieldref:
@@ -245,6 +231,23 @@ static void init_classfile(struct classfile *classfile) {
     classfile->attributes = NULL;
 }
 
+u1 get_u1(const u1 *current) {
+    return current[0];
+}
+
+u2 get_u2(const u1 *current) {
+    return (current[0] << 8) | current[1];
+}
+
+u4 get_u4(const u1 *current) {
+    return (current[0] << 24) | (current[1] << 16) | (current[2] << 8) |
+           current[3];
+}
+
+CLASSFILE_DEFUN_READ_U(1);
+CLASSFILE_DEFUN_READ_U(2);
+CLASSFILE_DEFUN_READ_U(4);
+
 bool parse_classfile(struct classfile *classfile, long nbytes,
                      const u1 *bytes) {
     init_classfile(classfile);
@@ -255,7 +258,7 @@ bool parse_classfile(struct classfile *classfile, long nbytes,
     if (end - current < 4)
         goto failure;
 
-    classfile->magic = get_u4(&current);
+    classfile->magic = read_u4(&current);
 
     if (classfile->magic != 0xCAFEBABEL)
         goto failure;
@@ -263,9 +266,9 @@ bool parse_classfile(struct classfile *classfile, long nbytes,
     if (end - current < 6)
         goto failure;
 
-    classfile->minor_version = get_u2(&current);
-    classfile->major_version = get_u2(&current);
-    classfile->constant_pool_count = get_u2(&current);
+    classfile->minor_version = read_u2(&current);
+    classfile->major_version = read_u2(&current);
+    classfile->constant_pool_count = read_u2(&current);
 
     if (classfile->constant_pool_count == 0)
         goto failure;
@@ -283,14 +286,14 @@ bool parse_classfile(struct classfile *classfile, long nbytes,
     if (end - current < 6)
         goto failure;
 
-    classfile->access_flags = get_u2(&current);
-    classfile->this_class = get_u2(&current);
-    classfile->super_class = get_u2(&current);
+    classfile->access_flags = read_u2(&current);
+    classfile->this_class = read_u2(&current);
+    classfile->super_class = read_u2(&current);
 
-    CLASSFILE_PARSE(u2, interfaces);
-    CLASSFILE_PARSE(struct field_info, fields);
-    CLASSFILE_PARSE(struct method_info, methods);
-    CLASSFILE_PARSE(struct attribute_info, attributes);
+    CLASSFILE_SUBROUTINE_PARSE(u2, interfaces);
+    CLASSFILE_SUBROUTINE_PARSE(struct field_info, fields);
+    CLASSFILE_SUBROUTINE_PARSE(struct method_info, methods);
+    CLASSFILE_SUBROUTINE_PARSE(struct attribute_info, attributes);
 
     if (current == end)
         return true;

@@ -20,17 +20,33 @@
  * SOFTWARE.
  */
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "classfile.h"
 #include "file.h"
+#include "verifier.h"
+
+void print_usage(void) {
+    printf("USAGE: javap <classes>");
+}
 
 int main(int argc, char const *argv[]) {
+    if (argc <= 1) {
+        print_usage();
+        return 0;
+    }
+
     uint8_t *bytes;
-    long nbytes = fread_all(&bytes, "Object.class");
+    long nbytes = fread_all(&bytes, argv[1]);
 
     struct classfile classfile;
     parse_classfile(&classfile, nbytes, bytes);
+
+    if (!verify_class_format(&classfile)) {
+        fprintf(stderr, "XXXX\n");
+        return 0;
+    }
+
+    u1 *source_file_name;
 
     printf("\n----------------------------------------\n");
     printf("magic: 0x%08X\n", classfile.magic);

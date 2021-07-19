@@ -19,20 +19,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef CLASSFILE_H
-#define CLASSFILE_H
+#ifndef VERIFIER_H
+#define VERIFIER_H
 
 #include <stdbool.h>
 
 #include "typedefs.h"
 
-extern u1 get_u1(const u1 *current);
-extern u2 get_u2(const u1 *current);
-extern u4 get_u4(const u1 *current);
-extern u1 read_u1(const u1 **current_ptr);
-extern u2 read_u2(const u1 **current_ptr);
-extern u4 read_u4(const u1 **current_ptr);
-extern bool parse_classfile(struct classfile *classfile, long nbytes,
-                            const u1 *bytes);
+extern bool verify_class_format(const struct classfile *classfile);
+extern bool verify_class_version(const struct classfile *classfile);
 
-#endif /* CLASSFILE_H */
+#endif /* VERIFIER_H */
