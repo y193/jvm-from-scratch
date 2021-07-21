@@ -144,6 +144,8 @@ static bool parse_constant_pool(u2 constant_pool_count,
     const u1 info_lengths[] = {0, 0, 0, 4, 4, 8, 8, 2, 2, 4, 4, 4, 4};
     const u1 *current = *current_ptr;
 
+    constant_pool[0] = (struct cp_info){0, NULL};
+
     for (u2 i = 1; i < constant_pool_count; i++) {
         if (end - current < 1)
             return false;
@@ -168,7 +170,11 @@ static bool parse_constant_pool(u2 constant_pool_count,
 
         case CONSTANT_Long:
         case CONSTANT_Double:
+            if (i >= constant_pool_count - 1)
+                return false;
+
             i++;
+            constant_pool[i] = (struct cp_info){0, NULL};
 
         case CONSTANT_Integer:
         case CONSTANT_Float:
@@ -244,9 +250,9 @@ u4 get_u4(const u1 *current) {
            current[3];
 }
 
-CLASSFILE_DEFUN_READ_U(1);
-CLASSFILE_DEFUN_READ_U(2);
-CLASSFILE_DEFUN_READ_U(4);
+CLASSFILE_DEFUN_READ_U(1)
+CLASSFILE_DEFUN_READ_U(2)
+CLASSFILE_DEFUN_READ_U(4)
 
 bool parse_classfile(struct classfile *classfile, long nbytes,
                      const u1 *bytes) {

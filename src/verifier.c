@@ -25,25 +25,14 @@
 #define JAVA_MIN_SUPPORTED_VERSION 45
 #define JAVA_MAX_SUPPORTED_VERSION 49
 
-bool verify_class_format(const struct classfile *classfile) {
-    if (classfile->magic != 0xCAFEBABEL)
-        return false;
-
-    u2 cp_count = classfile->constant_pool_count;
-
+static bool verify_class_format_cp(u2 cp_count, const struct cp_info *cp) {
     if (cp_count == 0)
         return false;
-
-    struct cp_info *cp = classfile->constant_pool;
 
     for (int i = 1; i < cp_count; i++) {
         struct cp_info cp_entry = cp[i];
         u1 tag = cp_entry.tag;
         u2 cp_index;
-
-        if (tag < CONSTANT_Utf8 || CONSTANT_NameAndType < tag ||
-            tag == CONSTANT_Unicode)
-            return false;
 
         switch (tag) {
         case CONSTANT_Utf8:
@@ -51,8 +40,14 @@ bool verify_class_format(const struct classfile *classfile) {
 
         case CONSTANT_Integer:
         case CONSTANT_Float:
+            break;
+
         case CONSTANT_Long:
         case CONSTANT_Double:
+            if (i >= cp_count - 1)
+                return false;
+
+            i++;
             break;
 
         case CONSTANT_Class:
@@ -97,6 +92,43 @@ bool verify_class_format(const struct classfile *classfile) {
             return false;
         }
     }
+
+    return true;
+}
+
+static bool verify_class_format_fields(u2 fields_count,
+                                       const struct field_info *fields,
+                                       u2 cp_count, const struct cp_info *cp) {
+    for (int i = 0; i < fields_count; i++) {
+        struct field_info field = fields[i];
+        u2 cp_index;
+
+        cp_index = field.name_index;
+
+        if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)
+            return false;
+
+        cp_index = field.descriptor_index;
+
+        if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)
+            return false;
+    }
+
+    return true;
+}
+
+bool verify_class_format(const struct classfile *classfile) {
+    if (classfile->magic != 0xCAFEBABEL)
+        return false;
+
+    if (!verify_class_format_cp(classfile->constant_pool_count,
+                                classfile->constant_pool))
+        return false;
+
+    if (!verify_class_format_fields(classfile->fields_count, classfile->fields,
+                                    classfile->constant_pool_count,
+                                    classfile->constant_pool))
+        return false;
 
     return true;
 }
