@@ -42,31 +42,41 @@ int main(int argc, char const *argv[]) {
     parse_classfile(&classfile, nbytes, bytes);
 
     if (!verify_class_format(&classfile)) {
-        fprintf(stderr, "XXXX\n");
+        fprintf(stderr, "ClassFormatError\n");
         return 0;
     }
 
-    u1 *source_file_name;
+    char *source_file_name = "Object.java";
 
-    printf("\n----------------------------------------\n");
-    printf("magic: 0x%08X\n", classfile.magic);
-    printf("minor_version: %u\n", classfile.minor_version);
-    printf("major_version: %u\n", classfile.major_version);
-    printf("constant_pool_count: %u\n", classfile.constant_pool_count);
-    printf("constant_pool: [%s]\n",
-           classfile.constant_pool == NULL ? "" : "...");
-    printf("access_flags: 0x%04X\n", classfile.access_flags);
-    printf("this_class: %u\n", classfile.this_class);
-    printf("super_class: %u\n", classfile.super_class);
-    printf("interfaces_count: %u\n", classfile.interfaces_count);
-    printf("interfaces: [%s]\n", classfile.interfaces == NULL ? "" : "...");
-    printf("fields_count: %u\n", classfile.fields_count);
-    printf("fields: [%s]\n", classfile.fields == NULL ? "" : "...");
-    printf("methods_count: %u\n", classfile.methods_count);
-    printf("methods: [%s]\n", classfile.methods == NULL ? "" : "...");
-    printf("attributes_count: %u\n", classfile.attributes_count);
-    printf("attributes: [%s]\n", classfile.attributes == NULL ? "" : "...");
-    printf("----------------------------------------\n");
+    printf("Compiled from \"%s\"\n", source_file_name);
+    printf("public class java.lang.Object\n");
+    printf("  minor version: 3\n");
+    printf("  major version: 45\n");
+    printf("  flags: ACC_PUBLIC\n");
+    printf("Constant pool:\n");
+    printf("   #1 = Integer            500000\n");
+    printf("   #2 = String             #41            // @\n");
+    printf("   #3 = Class              #61            // "
+           "java/lang/InterruptedException\n");
+    printf("...\n");
+    printf("  #60 = Utf8               getClass\n");
+    printf("  #61 = Utf8               java/lang/InterruptedException\n");
+    printf("  #62 = Utf8               ()V\n");
+    printf("{\n");
+    printf("  public final native java.lang.Class getClass();\n");
+    printf("    descriptor: ()Ljava/lang/Class;\n");
+    printf("    flags: ACC_PUBLIC, ACC_FINAL, ACC_NATIVE\n");
+    printf("...\n");
+    printf("  public java.lang.Object();\n");
+    printf("    descriptor: ()V\n");
+    printf("    flags: ACC_PUBLIC\n");
+    printf("    Code:\n");
+    printf("      stack=0, locals=1, args_size=1\n");
+    printf("         0: return\n");
+    printf("      LineNumberTable:\n");
+    printf("        line 29: 0\n");
+    printf("}\n");
+    printf("SourceFile: \"Object.java\"\n");
 
     return 0;
 }

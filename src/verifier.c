@@ -25,7 +25,50 @@
 #define JAVA_MIN_SUPPORTED_VERSION 45
 #define JAVA_MAX_SUPPORTED_VERSION 49
 
-static bool verify_class_format_cp(u2 cp_count, const struct cp_info *cp) {
+#define VERIFIER_DEFUN_VERIFY_FORMAT(type, member)                             \
+    static bool verify_format_##member(u2 member##_count, const type *member,  \
+                                       u2 cp_count,                            \
+                                       const struct cp_info *cp) {             \
+        for (int i = 0; i < member##_count; i++) {                             \
+            type entry = member[i];                                            \
+            u2 cp_index = entry.name_index;                                    \
+                                                                               \
+            if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)     \
+                return false;                                                  \
+                                                                               \
+            cp_index = entry.descriptor_index;                                 \
+                                                                               \
+            if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)     \
+                return false;                                                  \
+                                                                               \
+            if (entry.attributes_count >= 1 &&                                 \
+                !verify_format_attributes(entry.attributes_count,              \
+                                          entry.attributes, cp_count, cp))     \
+                return false;                                                  \
+        }                                                                      \
+                                                                               \
+        return true;                                                           \
+    }
+
+static bool verify_format_attributes(u2 attributes_count,
+                                     const struct attribute_info *attributes,
+                                     u2 cp_count, const struct cp_info *cp) {
+
+    for (int i = 0; i < attributes_count; i++) {
+        struct attribute_info attribute = attributes[i];
+        u2 cp_index = attribute.attribute_name_index;
+
+        if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)
+            return false;
+    }
+
+    return true;
+}
+
+VERIFIER_DEFUN_VERIFY_FORMAT(struct method_info, methods)
+VERIFIER_DEFUN_VERIFY_FORMAT(struct field_info, fields)
+
+static bool verify_format_cp(u2 cp_count, const struct cp_info *cp) {
     if (cp_count == 0)
         return false;
 
@@ -96,38 +139,22 @@ static bool verify_class_format_cp(u2 cp_count, const struct cp_info *cp) {
     return true;
 }
 
-static bool verify_class_format_fields(u2 fields_count,
-                                       const struct field_info *fields,
-                                       u2 cp_count, const struct cp_info *cp) {
-    for (int i = 0; i < fields_count; i++) {
-        struct field_info field = fields[i];
-        u2 cp_index;
-
-        cp_index = field.name_index;
-
-        if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)
-            return false;
-
-        cp_index = field.descriptor_index;
-
-        if (cp_index >= cp_count || cp[cp_index].tag != CONSTANT_Utf8)
-            return false;
-    }
-
-    return true;
-}
-
 bool verify_class_format(const struct classfile *classfile) {
     if (classfile->magic != 0xCAFEBABEL)
         return false;
 
-    if (!verify_class_format_cp(classfile->constant_pool_count,
-                                classfile->constant_pool))
+    if (!verify_format_cp(classfile->constant_pool_count,
+                          classfile->constant_pool))
         return false;
 
-    if (!verify_class_format_fields(classfile->fields_count, classfile->fields,
-                                    classfile->constant_pool_count,
-                                    classfile->constant_pool))
+    if (!verify_format_fields(classfile->fields_count, classfile->fields,
+                              classfile->constant_pool_count,
+                              classfile->constant_pool))
+        return false;
+
+    if (!verify_format_methods(classfile->methods_count, classfile->methods,
+                               classfile->constant_pool_count,
+                               classfile->constant_pool))
         return false;
 
     return true;
